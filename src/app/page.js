@@ -2,54 +2,73 @@ import { Suspense } from 'react';
 import prisma from '@/lib/db';
 import HomeClient from './HomeClient';
 
-export const dynamic = 'force-dynamic';
+export const revalidate = 10; // Cache trang chủ 10 giây ở CDN để tăng tốc độ tải cực đại
 
 export default async function Home() {
   try {
-    // 1. Fetch comics
+    // 1. Fetch comics với các thống kê đi kèm trong 1 truy vấn đơn lẻ (Favorites, Ratings)
     const comics = await prisma.comic.findMany({
       orderBy: { createdAt: 'desc' },
       include: {
         chapters: {
           orderBy: { chapterNumber: 'desc' },
           take: 1
+        },
+        _count: {
+          select: {
+            favorites: true
+          }
+        },
+        ratings: {
+          select: {
+            score: true
+          }
         }
       }
     });
 
-    // 2. Precompute stats (ratings, comments, favorites) for each comic
-    const enrichedComics = await Promise.all(comics.map(async (comic) => {
-      const comicId = comic.id;
-
-      // Favorites Count
-      const favoritesCount = await prisma.favorite.count({
-        where: { comicId }
-      });
-
-      // Comments Count (accumulated across all chapters of the comic)
-      const commentsCount = await prisma.comment.count({
-        where: {
-          chapter: { comicId }
+    // 2. Fetch toàn bộ comments để gom đếm in-memory (Tránh N+1 query comments)
+    const comments = await prisma.comment.findMany({
+      select: {
+        chapter: {
+          select: {
+            comicId: true
+          }
         }
-      });
+      }
+    });
 
-      // Ratings Stats
-      const ratings = await prisma.rating.findMany({
-        where: { comicId }
-      });
+    const commentCounts = {};
+    comments.forEach(c => {
+      const cid = c.chapter?.comicId;
+      if (cid) {
+        commentCounts[cid] = (commentCounts[cid] || 0) + 1;
+      }
+    });
+
+    // 3. Chuẩn bị mảng truyện phong phú thông tin
+    const enrichedComics = comics.map(comic => {
+      const ratings = comic.ratings || [];
       const ratingsCount = ratings.length;
       const averageRating = ratingsCount > 0
-        ? ratings.reduce((sum, r) => sum + r.score, 0) / ratingsCount
+        ? parseFloat((ratings.reduce((sum, r) => sum + r.score, 0) / ratingsCount).toFixed(1))
         : 0;
 
       return {
-        ...comic,
-        favoritesCount,
-        commentsCount,
+        id: comic.id,
+        title: comic.title,
+        description: comic.description,
+        thumbnail: comic.thumbnail,
+        status: comic.status,
+        createdAt: comic.createdAt,
+        updatedAt: comic.updatedAt,
+        chapters: comic.chapters,
+        favoritesCount: comic._count?.favorites || 0,
+        commentsCount: commentCounts[comic.id] || 0,
         averageRating,
         ratingsCount,
       };
-    }));
+    });
 
     return (
       <Suspense fallback={
