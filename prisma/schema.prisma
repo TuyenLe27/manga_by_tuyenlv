@@ -1,0 +1,87 @@
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id        String     @id @default(uuid())
+  username  String     @unique
+  password  String
+  role      String     @default("USER") // "USER" or "ADMIN"
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  favorites Favorite[]
+  comments  Comment[]
+  ratings   Rating[]
+}
+
+model Comic {
+  id          String     @id @default(uuid())
+  title       String     @db.Text
+  description String     @db.Text
+  thumbnail   String     @db.Text
+  status      String     // "ONGOING" or "COMPLETED"
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  chapters    Chapter[]
+  favorites   Favorite[]
+  ratings     Rating[]
+}
+
+model Chapter {
+  id            String         @id @default(uuid())
+  comicId       String
+  comic         Comic          @relation(fields: [comicId], references: [id], onDelete: Cascade)
+  chapterNumber Float
+  title         String
+  createdAt     DateTime       @default(now())
+  images        ChapterImage[]
+  comments      Comment[]
+}
+
+model ChapterImage {
+  id         String   @id @default(uuid())
+  chapterId  String
+  chapter    Chapter  @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  url        String   @db.Text
+  sortOrder  Int
+}
+
+model Favorite {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  comicId   String
+  comic     Comic    @relation(fields: [comicId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, comicId])
+}
+
+model Comment {
+  id        String   @id @default(uuid())
+  chapterId String
+  chapter   Chapter  @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  content   String   @db.Text
+  createdAt DateTime @default(now())
+}
+
+model Rating {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  comicId   String
+  comic     Comic    @relation(fields: [comicId], references: [id], onDelete: Cascade)
+  score     Int      // 1 to 5
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, comicId])
+}
+
