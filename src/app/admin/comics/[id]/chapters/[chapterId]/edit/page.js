@@ -5,12 +5,15 @@ import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { Upload, X, ArrowLeft, Loader2, FileText, CheckCircle2, AlertCircle, Image as ImageIcon, ArrowUp, ArrowDown, Trash2 } from 'lucide-react';
 
+import { compressImage } from '@/lib/clientCompress';
+
 export default function EditChapterPage() {
   const [comic, setComic] = useState(null);
   const [chapter, setChapter] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isAutosaving, setIsAutosaving] = useState(false);
+  const [compressing, setCompressing] = useState(false);
   const [chapterNumber, setChapterNumber] = useState('');
   const [chapterTitle, setChapterTitle] = useState('');
   
@@ -121,24 +124,35 @@ export default function EditChapterPage() {
     }
 
     setError('');
+    setCompressing(true);
     
-    // Sort selected files naturally by name
-    const sortedFiles = [...selectedFiles].sort((a, b) => {
-      return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' });
-    });
+    try {
+      // Sort selected files naturally by name
+      const sortedFiles = [...selectedFiles].sort((a, b) => {
+        return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' });
+      });
 
-    const newAddedItems = sortedFiles.map((file, idx) => ({
-      tempId: `new-${Date.now()}-${idx}-${Math.random().toString(36).substr(2, 9)}`,
-      file: file,
-      url: URL.createObjectURL(file),
-      type: 'new',
-      name: file.name,
-      size: file.size
-    }));
+      const compressedFiles = await Promise.all(
+        sortedFiles.map(file => compressImage(file))
+      );
 
-    const updatedItems = [...items, ...newAddedItems];
-    setItems(updatedItems);
-    await autoSaveItems(updatedItems);
+      const newAddedItems = compressedFiles.map((file, idx) => ({
+        tempId: `new-${Date.now()}-${idx}-${Math.random().toString(36).substr(2, 9)}`,
+        file: file,
+        url: URL.createObjectURL(file),
+        type: 'new',
+        name: file.name,
+        size: file.size
+      }));
+
+      const updatedItems = [...items, ...newAddedItems];
+      setItems(updatedItems);
+      await autoSaveItems(updatedItems);
+    } catch (err) {
+      setError('Lỗi khi nén ảnh: ' + err.message);
+    } finally {
+      setCompressing(false);
+    }
   };
 
   const handleRemoveItem = async (index) => {
@@ -352,9 +366,19 @@ export default function EditChapterPage() {
           <div className="flex items-center justify-center w-full">
             <label className="flex flex-col items-center justify-center w-full h-28 rounded-lg border-2 border-dashed border-slate-700 bg-slate-950 hover:border-slate-500 hover:bg-slate-900/20 cursor-pointer transition-all duration-200 shadow-sm">
               <div className="flex flex-col items-center justify-center pt-4 pb-4 px-4 text-center">
-                <Upload className="h-6 w-6 text-slate-500 mb-2" />
-                <p className="text-xs font-semibold text-slate-400">Thêm ảnh mới vào chương</p>
-                <p className="text-[10px] text-slate-450 mt-0.5">Sau đó kéo thả để xếp thứ tự theo ý muốn</p>
+                {compressing ? (
+                  <>
+                    <Loader2 className="h-6 w-6 text-violet-500 mb-2 animate-spin" />
+                    <p className="text-xs font-semibold text-slate-400">Đang nén và tối ưu hóa ảnh...</p>
+                    <p className="text-[10px] text-slate-450 mt-0.5">Vui lòng chờ trong giây lát</p>
+                  </>
+                ) : (
+                  <>
+                    <Upload className="h-6 w-6 text-slate-500 mb-2" />
+                    <p className="text-xs font-semibold text-slate-400">Thêm ảnh mới vào chương</p>
+                    <p className="text-[10px] text-slate-450 mt-0.5">Sau đó kéo thả để xếp thứ tự theo ý muốn</p>
+                  </>
+                )}
               </div>
               <input
                 type="file"
@@ -362,6 +386,7 @@ export default function EditChapterPage() {
                 accept="image/*"
                 onChange={handleFileChange}
                 className="hidden"
+                disabled={compressing}
               />
             </label>
           </div>

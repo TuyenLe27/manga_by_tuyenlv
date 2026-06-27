@@ -5,10 +5,13 @@ import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { Upload, X, ArrowLeft, Loader2, ArrowUp, ArrowDown, Trash2, CheckCircle2, AlertCircle } from 'lucide-react';
 
+import { compressImage } from '@/lib/clientCompress';
+
 export default function NewChapterPage() {
   const [comic, setComic] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [compressing, setCompressing] = useState(false);
   const [chapterNumber, setChapterNumber] = useState('');
   const [chapterTitle, setChapterTitle] = useState('');
   
@@ -39,7 +42,7 @@ export default function NewChapterPage() {
     fetchComic();
   }, [params]);
 
-  const handleFileChange = (e) => {
+  const handleFileChange = async (e) => {
     const selectedFiles = Array.from(e.target.files);
     
     // Validate image types
@@ -50,22 +53,33 @@ export default function NewChapterPage() {
     }
 
     setError('');
+    setCompressing(true);
     
-    // Sort selected files naturally by name
-    const sortedFiles = [...selectedFiles].sort((a, b) => {
-      return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' });
-    });
+    try {
+      // Sort selected files naturally by name
+      const sortedFiles = [...selectedFiles].sort((a, b) => {
+        return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' });
+      });
 
-    const newItems = sortedFiles.map((file, idx) => ({
-      tempId: `new-${Date.now()}-${idx}-${Math.random().toString(36).substr(2, 9)}`,
-      file: file,
-      url: URL.createObjectURL(file),
-      type: 'new',
-      name: file.name,
-      size: file.size
-    }));
+      const compressedFiles = await Promise.all(
+        sortedFiles.map(file => compressImage(file))
+      );
 
-    setItems(prev => [...prev, ...newItems]);
+      const newItems = compressedFiles.map((file, idx) => ({
+        tempId: `new-${Date.now()}-${idx}-${Math.random().toString(36).substr(2, 9)}`,
+        file: file,
+        url: URL.createObjectURL(file),
+        type: 'new',
+        name: file.name,
+        size: file.size
+      }));
+
+      setItems(prev => [...prev, ...newItems]);
+    } catch (err) {
+      setError('Lỗi khi nén ảnh: ' + err.message);
+    } finally {
+      setCompressing(false);
+    }
   };
 
   const handleRemoveItem = (index) => {
@@ -266,9 +280,19 @@ export default function NewChapterPage() {
           <div className="flex items-center justify-center w-full">
             <label className="flex flex-col items-center justify-center w-full h-28 rounded-lg border-2 border-dashed border-slate-700 bg-slate-950 hover:border-slate-500 hover:bg-slate-900/20 cursor-pointer transition-all duration-200 shadow-sm">
               <div className="flex flex-col items-center justify-center pt-4 pb-4 px-4 text-center">
-                <Upload className="h-6 w-6 text-slate-500 mb-2" />
-                <p className="text-xs font-semibold text-slate-400">Chọn hoặc kéo thả nhiều ảnh</p>
-                <p className="text-[10px] text-slate-450 mt-0.5">Sau đó kéo thả để xếp thứ tự theo ý muốn</p>
+                {compressing ? (
+                  <>
+                    <Loader2 className="h-6 w-6 text-violet-500 mb-2 animate-spin" />
+                    <p className="text-xs font-semibold text-slate-400">Đang nén và tối ưu hóa ảnh...</p>
+                    <p className="text-[10px] text-slate-450 mt-0.5">Vui lòng chờ trong giây lát</p>
+                  </>
+                ) : (
+                  <>
+                    <Upload className="h-6 w-6 text-slate-500 mb-2" />
+                    <p className="text-xs font-semibold text-slate-400">Chọn hoặc kéo thả nhiều ảnh</p>
+                    <p className="text-[10px] text-slate-450 mt-0.5">Sau đó kéo thả để xếp thứ tự theo ý muốn</p>
+                  </>
+                )}
               </div>
               <input
                 type="file"
@@ -276,6 +300,7 @@ export default function NewChapterPage() {
                 accept="image/*"
                 onChange={handleFileChange}
                 className="hidden"
+                disabled={compressing}
               />
             </label>
           </div>
