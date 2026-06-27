@@ -4,15 +4,19 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, BookOpen, Clock, Play, ArrowUpRight, RefreshCw, CheckCircle, Heart, Loader2, Star } from 'lucide-react';
+import { getCache, setCache } from '@/lib/clientCache';
 
 export default function ComicDetailClient({ initialComic }) {
-  const [comic, setComic] = useState(initialComic);
+  const [comic, setComic] = useState(() => getCache(`comic_${initialComic?.id}`) || initialComic);
   const [error, setError] = useState('');
   const [lastReadChapter, setLastReadChapter] = useState(null);
   const [isFavorited, setIsFavorited] = useState(false);
   const [favLoading, setFavLoading] = useState(false);
   
-  const [userRating, setUserRating] = useState(initialComic?.userRating || null);
+  const [userRating, setUserRating] = useState(() => {
+    const extra = getCache(`comic_extra_${initialComic?.id}`);
+    return extra ? extra.userRating : (initialComic?.userRating || null);
+  });
   const [hoverRating, setHoverRating] = useState(null);
   const [ratingLoading, setRatingLoading] = useState(false);
 
@@ -25,31 +29,64 @@ export default function ComicDetailClient({ initialComic }) {
     if (initialComic.chapters) {
       initialComic.chapters.sort((a, b) => a.chapterNumber - b.chapterNumber);
     }
-    setComic(initialComic);
+    
+    // Luôn lưu cache bản xem trước truyện
+    setCache(`comic_${initialComic.id}`, initialComic);
+    if (!getCache(`comic_${initialComic.id}`)) {
+      setComic(initialComic);
+    }
 
     const fetchFavoriteAndUserRating = async () => {
       try {
         const id = initialComic.id;
+        const cacheKey = `comic_extra_${id}`;
         
-        // Fetch rating and favorite state asynchronously
-        const res = await fetch(`/api/comics/${id}?t=${Date.now()}`);
-        if (res.ok) {
-          const data = await res.json();
-          setUserRating(data.userRating);
+        // 1. Đọc nhanh từ Cache phụ (Yêu thích/Đánh giá) nếu có
+        const cachedExtra = getCache(cacheKey);
+        if (cachedExtra) {
+          setUserRating(cachedExtra.userRating);
+          setIsFavorited(cachedExtra.isFavorited);
           setComic(prev => ({
             ...prev,
+            ...cachedExtra.comicData
+          }));
+        }
+
+        // 2. Chạy tải ngầm cập nhật trạng thái mới nhất từ server (SWR)
+        const res = await fetch(`/api/comics/${id}?t=${Date.now()}`);
+        let freshComicData = {};
+        let freshUserRating = null;
+        let freshIsFavorited = false;
+
+        if (res.ok) {
+          const data = await res.json();
+          freshUserRating = data.userRating;
+          setUserRating(freshUserRating);
+          freshComicData = {
             averageRating: data.averageRating,
             ratingsCount: data.ratingsCount,
             favoritesCount: data.favoritesCount,
             commentsCount: data.commentsCount
+          };
+          setComic(prev => ({
+            ...prev,
+            ...freshComicData
           }));
         }
 
         const favRes = await fetch(`/api/favorites/${id}?t=${Date.now()}`);
         if (favRes.ok) {
           const favData = await favRes.json();
-          setIsFavorited(favData.isFavorited);
+          freshIsFavorited = favData.isFavorited;
+          setIsFavorited(freshIsFavorited);
         }
+
+        // Cập nhật lại cache phụ
+        setCache(cacheKey, {
+          userRating: freshUserRating,
+          isFavorited: freshIsFavorited,
+          comicData: freshComicData
+        });
       } catch (err) {
         console.error('Error fetching asynchronous details:', err);
       }

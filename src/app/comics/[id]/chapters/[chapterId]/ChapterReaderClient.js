@@ -5,9 +5,11 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, ChevronLeft, ChevronRight, Loader2, RefreshCw, Settings, MessageSquare, Send, Trash2, User, AlertCircle } from 'lucide-react';
 
+import { getCache, setCache } from '@/lib/clientCache';
+
 export default function ChapterReaderClient({ initialComic, initialChapter }) {
-  const [comic, setComic] = useState(initialComic);
-  const [chapter, setChapter] = useState(initialChapter);
+  const [comic, setComic] = useState(() => getCache(`comic_${initialComic?.id}`) || initialComic);
+  const [chapter, setChapter] = useState(() => getCache(`chapter_${initialChapter?.id}`) || initialChapter);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [scrollProgress, setScrollProgress] = useState(0);
@@ -100,8 +102,14 @@ export default function ChapterReaderClient({ initialComic, initialChapter }) {
   useEffect(() => {
     if (!initialComic || !initialChapter) return;
     
-    setComic(initialComic);
-    setChapter(initialChapter);
+    // Lưu cache thông tin truyện và chương hiện tại
+    setCache(`comic_${comicId}`, initialComic);
+    setCache(`chapter_${chapterId}`, initialChapter);
+
+    if (!getCache(`chapter_${chapterId}`)) {
+      setComic(initialComic);
+      setChapter(initialChapter);
+    }
     setLoading(false);
 
     // Save to LocalStorage for read history
@@ -113,7 +121,7 @@ export default function ChapterReaderClient({ initialComic, initialChapter }) {
         title: initialChapter.title,
       })
     );
-  }, [initialComic, initialChapter, comicId]);
+  }, [initialComic, initialChapter, comicId, chapterId]);
 
   useEffect(() => {
     setCurrentImageIndex(0);
@@ -170,12 +178,18 @@ export default function ChapterReaderClient({ initialComic, initialChapter }) {
   useEffect(() => {
     if (!chapterId) return;
     const fetchComments = async () => {
+      const cacheKey = `comments_${chapterId}`;
+      const cached = getCache(cacheKey);
+      if (cached) {
+        setComments(cached);
+        setCommentsLoading(false);
+      }
       try {
-        setCommentsLoading(true);
         const res = await fetch(`/api/chapters/${chapterId}/comments?t=${Date.now()}`);
         if (res.ok) {
           const data = await res.json();
           setComments(data);
+          setCache(cacheKey, data);
         }
       } catch (err) {
         console.error('Error fetching comments:', err);
@@ -205,7 +219,11 @@ export default function ChapterReaderClient({ initialComic, initialChapter }) {
       if (!res.ok) {
         throw new Error(data.error || 'Lỗi khi gửi bình luận.');
       }
-      setComments(prev => [data, ...prev]);
+      setComments(prev => {
+        const updated = [data, ...prev];
+        setCache(`comments_${chapterId}`, updated);
+        return updated;
+      });
       setCommentContent('');
     } catch (err) {
       setCommentError(err.message);
@@ -224,7 +242,11 @@ export default function ChapterReaderClient({ initialComic, initialChapter }) {
       if (!res.ok) {
         throw new Error(data.error || 'Lỗi khi xóa bình luận.');
       }
-      setComments(prev => prev.filter(c => c.id !== commentId));
+      setComments(prev => {
+        const updated = prev.filter(c => c.id !== commentId);
+        setCache(`comments_${chapterId}`, updated);
+        return updated;
+      });
     } catch (err) {
       alert(err.message);
     }
