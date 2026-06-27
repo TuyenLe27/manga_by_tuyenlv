@@ -3,6 +3,7 @@ import prisma from '@/lib/db';
 import { saveUploadedFile, deleteUploadedPath } from '@/lib/upload';
 import { cookies } from 'next/headers';
 import { getSessionPayload } from '@/lib/auth';
+import { mapComic } from '@/lib/media';
 
 export const dynamic = 'force-dynamic';
 
@@ -58,14 +59,14 @@ export async function GET(request, { params }) {
       userRating = activeRating ? activeRating.score : null;
     }
 
-    return NextResponse.json({
+    return NextResponse.json(mapComic({
       ...comic,
       favoritesCount,
       commentsCount,
       ratingsCount,
       averageRating,
       userRating
-    });
+    }));
   } catch (error) {
     console.error('Error fetching comic details:', error);
     return NextResponse.json({ error: 'Failed to fetch comic' }, { status: 500 });
@@ -127,7 +128,7 @@ export async function PUT(request, { params }) {
       data,
     });
 
-    return NextResponse.json(updatedComic);
+    return NextResponse.json(mapComic(updatedComic));
   } catch (error) {
     console.error('Error updating comic:', error);
     return NextResponse.json({ error: 'Failed to update comic' }, { status: 500 });

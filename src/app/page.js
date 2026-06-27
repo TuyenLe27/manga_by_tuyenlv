@@ -1,6 +1,7 @@
 import { Suspense } from 'react';
 import prisma from '@/lib/db';
 import HomeClient from './HomeClient';
+import { mapComic } from '@/lib/media';
 
 export const revalidate = 10; // Cache trang chủ 10 giây ở CDN để tăng tốc độ tải cực đại
 
@@ -54,7 +55,7 @@ export default async function Home() {
         ? parseFloat((ratings.reduce((sum, r) => sum + r.score, 0) / ratingsCount).toFixed(1))
         : 0;
 
-      return {
+      return mapComic({
         id: comic.id,
         title: comic.title,
         description: comic.description,
@@ -67,7 +68,7 @@ export default async function Home() {
         commentsCount: commentCounts[comic.id] || 0,
         averageRating,
         ratingsCount,
-      };
+      });
     });
 
     return (

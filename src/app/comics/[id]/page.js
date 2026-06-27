@@ -1,6 +1,7 @@
 import prisma from '@/lib/db';
 import ComicDetailClient from './ComicDetailClient';
 import { notFound } from 'next/navigation';
+import { mapComic } from '@/lib/media';
 
 export const revalidate = 5; // Cache chi tiết truyện 5 giây ở CDN tăng tốc độ tải trang cực đại
 
@@ -40,13 +41,13 @@ export default async function Page({ params }) {
       ? parseFloat((ratings.reduce((sum, r) => sum + r.score, 0) / ratingsCount).toFixed(1))
       : 0;
 
-    const initialComic = {
+    const initialComic = mapComic({
       ...JSON.parse(JSON.stringify(comic)),
       favoritesCount,
       commentsCount,
       ratingsCount,
       averageRating,
-    };
+    });
 
     return <ComicDetailClient initialComic={initialComic} />;
   } catch (error) {

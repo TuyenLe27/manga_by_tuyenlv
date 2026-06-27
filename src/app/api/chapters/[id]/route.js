@@ -3,6 +3,7 @@ import prisma from '@/lib/db';
 import { deleteUploadedPath, saveUploadedFile } from '@/lib/upload';
 import { cookies } from 'next/headers';
 import { getSessionPayload } from '@/lib/auth';
+import { mapChapter } from '@/lib/media';
 
 export async function GET(request, { params }) {
   try {
@@ -27,7 +28,7 @@ export async function GET(request, { params }) {
       return NextResponse.json({ error: 'Chapter không tồn tại' }, { status: 404 });
     }
 
-    return NextResponse.json(chapter);
+    return NextResponse.json(mapChapter(chapter));
   } catch (error) {
     console.error('Error fetching chapter details:', error);
     return NextResponse.json({ error: 'Failed to fetch chapter' }, { status: 500 });
@@ -236,7 +237,7 @@ export async function PUT(request, { params }) {
       }
     });
 
-    return NextResponse.json(updatedChapter);
+    return NextResponse.json(mapChapter(updatedChapter));
   } catch (error) {
     console.error('Error updating chapter:', error);
     return NextResponse.json({ error: 'Lỗi hệ thống khi cập nhật chapter.' }, { status: 500 });

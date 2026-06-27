@@ -4,6 +4,7 @@ import { saveUploadedFile } from '@/lib/upload';
 import crypto from 'crypto';
 import { cookies } from 'next/headers';
 import { getSessionPayload } from '@/lib/auth';
+import { mapChapter } from '@/lib/media';
 
 export async function POST(request, { params }) {
   try {
@@ -89,7 +90,7 @@ export async function POST(request, { params }) {
       }
     });
 
-    return NextResponse.json(chapter);
+    return NextResponse.json(mapChapter(chapter));
   } catch (error) {
     console.error('Error creating chapter:', error);
     return NextResponse.json({ error: 'Failed to create chapter' }, { status: 500 });

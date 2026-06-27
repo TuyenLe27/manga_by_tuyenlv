@@ -1,6 +1,7 @@
 import prisma from '@/lib/db';
 import ChapterReaderClient from './ChapterReaderClient';
 import { notFound } from 'next/navigation';
+import { mapChapter, mapComic } from '@/lib/media';
 
 export const revalidate = 5; // Cache chương truyện 5 giây ở CDN tăng tốc độ tải trang cực đại
 
@@ -44,8 +45,8 @@ export default async function Page({ params }) {
 
     return (
       <ChapterReaderClient 
-        initialComic={JSON.parse(JSON.stringify(comic))} 
-        initialChapter={JSON.parse(JSON.stringify(chapter))} 
+        initialComic={JSON.parse(JSON.stringify(mapComic(comic)))} 
+        initialChapter={JSON.parse(JSON.stringify(mapChapter(chapter)))} 
       />
     );
   } catch (error) {

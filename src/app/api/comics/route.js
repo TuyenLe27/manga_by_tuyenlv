@@ -4,6 +4,7 @@ import { saveUploadedFile } from '@/lib/upload';
 import crypto from 'crypto';
 import { cookies } from 'next/headers';
 import { getSessionPayload } from '@/lib/auth';
+import { mapComic } from '@/lib/media';
 
 export const dynamic = 'force-dynamic';
 
@@ -35,7 +36,7 @@ export async function GET(request) {
       }
     });
 
-    return NextResponse.json(comics);
+    return NextResponse.json(comics.map(mapComic));
   } catch (error) {
     console.error('Error fetching comics:', error);
     return NextResponse.json({ error: 'Failed to fetch comics' }, { status: 500 });
