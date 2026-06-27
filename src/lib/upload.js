@@ -16,14 +16,20 @@ export async function saveUploadedFile(file, subDir, fileName) {
 
   // Directory: public/uploads/<subDir>
   const uploadDir = path.join(process.cwd(), 'public', 'uploads', subDir);
-  await fs.mkdir(uploadDir, { recursive: true });
 
-  const finalName = fileName || `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
-  const filePath = path.join(uploadDir, finalName);
-  await fs.writeFile(filePath, buffer);
-
-  // Public path that Next.js serves statically
-  return `/uploads/${subDir}/${finalName}`;
+  try {
+    await fs.mkdir(uploadDir, { recursive: true });
+    const finalName = fileName || `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
+    const filePath = path.join(uploadDir, finalName);
+    await fs.writeFile(filePath, buffer);
+    // Public path that Next.js serves statically
+    return `/uploads/${subDir}/${finalName}`;
+  } catch (error) {
+    console.warn("Read-only filesystem detected or write failed. Falling back to Base64 data URI.", error.message);
+    const mimeType = file.type || 'image/png';
+    const base64 = buffer.toString('base64');
+    return `data:${mimeType};base64,${base64}`;
+  }
 }
 
 /**
