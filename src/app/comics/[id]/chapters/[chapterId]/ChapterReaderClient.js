@@ -456,15 +456,16 @@ export default function ChapterReaderClient({ initialComic, initialChapter }) {
           </div>
         ) : readingMode === 'scroll' ? (
           chapter.images.map((img, idx) => (
-            <div key={img.id} className="relative w-full overflow-hidden flex flex-col items-center bg-slate-950">
+            <div key={img.id} className="relative w-full overflow-hidden flex flex-col items-center justify-center bg-slate-950 min-h-[60vh] md:min-h-[85vh] border-b border-slate-900/40">
               {!imagesLoaded[idx] && (
-                <div className="flex items-center justify-center bg-slate-900/10 py-24 min-h-[300px] w-full">
+                <div className="absolute inset-0 flex items-center justify-center bg-slate-900/10">
                   <RefreshCw className="h-6 w-6 animate-spin text-slate-500" />
                 </div>
               )}
               <img
                 src={img.url}
                 alt={`Trang ${idx + 1}`}
+                loading="lazy"
                 onLoad={() => handleImageLoad(idx)}
                 style={
                   renderingQuality === 'crisp'
@@ -474,7 +475,7 @@ export default function ChapterReaderClient({ initialComic, initialChapter }) {
                 className={`mx-auto block select-none pointer-events-none transition-opacity duration-300 ${
                   imageScale === 'original' ? 'max-w-full' : 'w-full'
                 } h-auto ${
-                  imagesLoaded[idx] ? 'opacity-100' : 'opacity-0 h-0'
+                  imagesLoaded[idx] ? 'opacity-100' : 'opacity-0 invisible'
                 }`}
               />
             </div>
@@ -532,6 +533,16 @@ export default function ChapterReaderClient({ initialComic, initialChapter }) {
                   } h-auto ${
                     imagesLoaded[currentImageIndex] ? 'opacity-100' : 'opacity-0 h-0'
                   }`}
+                />
+              )}
+
+              {/* Prefetch next image in background for instant swipe transitions */}
+              {chapter.images[currentImageIndex + 1] && (
+                <img
+                  src={chapter.images[currentImageIndex + 1].url}
+                  className="hidden animate-none"
+                  alt=""
+                  loading="lazy"
                 />
               )}
             </div>
