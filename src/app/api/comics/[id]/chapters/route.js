@@ -86,11 +86,25 @@ export async function POST(request, { params }) {
         }
       },
       include: {
-        images: true
+        images: {
+          select: {
+            id: true,
+            chapterId: true,
+            sortOrder: true
+          }
+        }
       }
     });
 
-    return NextResponse.json(mapChapter(chapter));
+    const mappedImages = chapter.images.map(img => ({
+      ...img,
+      url: `/api/images/${img.id}`
+    }));
+
+    return NextResponse.json({
+      ...chapter,
+      images: mappedImages
+    });
   } catch (error) {
     console.error('Error creating chapter:', error);
     return NextResponse.json({ error: 'Failed to create chapter' }, { status: 500 });

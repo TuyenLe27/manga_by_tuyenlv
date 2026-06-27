@@ -14,6 +14,11 @@ export async function GET(request, { params }) {
       where: { id },
       include: {
         images: {
+          select: {
+            id: true,
+            chapterId: true,
+            sortOrder: true
+          },
           orderBy: { sortOrder: 'asc' },
         },
         comic: {
@@ -28,7 +33,15 @@ export async function GET(request, { params }) {
       return NextResponse.json({ error: 'Chapter không tồn tại' }, { status: 404 });
     }
 
-    return NextResponse.json(mapChapter(chapter));
+    const mappedImages = chapter.images.map(img => ({
+      ...img,
+      url: `/api/images/${img.id}`
+    }));
+
+    return NextResponse.json({
+      ...chapter,
+      images: mappedImages
+    });
   } catch (error) {
     console.error('Error fetching chapter details:', error);
     return NextResponse.json({ error: 'Failed to fetch chapter' }, { status: 500 });
@@ -232,12 +245,25 @@ export async function PUT(request, { params }) {
       },
       include: {
         images: {
+          select: {
+            id: true,
+            chapterId: true,
+            sortOrder: true
+          },
           orderBy: { sortOrder: 'asc' }
         }
       }
     });
 
-    return NextResponse.json(mapChapter(updatedChapter));
+    const mappedImages = updatedChapter.images.map(img => ({
+      ...img,
+      url: `/api/images/${img.id}`
+    }));
+
+    return NextResponse.json({
+      ...updatedChapter,
+      images: mappedImages
+    });
   } catch (error) {
     console.error('Error updating chapter:', error);
     return NextResponse.json({ error: 'Lỗi hệ thống khi cập nhật chapter.' }, { status: 500 });

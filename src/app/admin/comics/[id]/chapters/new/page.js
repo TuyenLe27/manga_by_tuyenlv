@@ -101,25 +101,25 @@ export default function NewChapterPage() {
 
   // Drag and Drop handlers
   const handleDragStart = (e, index) => {
+    e.dataTransfer.setData('text/plain', index);
     setDraggedIndex(index);
-    e.dataTransfer.effectAllowed = 'move';
-    // Required for Firefox compatibility
-    e.dataTransfer.setData('text/html', e.currentTarget);
   };
 
-  const handleDragOver = (e, index) => {
+  const handleDragOver = (e) => {
     e.preventDefault();
-    if (draggedIndex === null || draggedIndex === index) return;
+  };
+
+  const handleDrop = (e, targetIndex) => {
+    e.preventDefault();
+    const sourceIndex = parseInt(e.dataTransfer.getData('text/plain'), 10);
+    if (isNaN(sourceIndex) || sourceIndex === targetIndex) return;
 
     const reorderedItems = [...items];
-    const draggedItem = reorderedItems[draggedIndex];
+    const [draggedItem] = reorderedItems.splice(sourceIndex, 1);
+    reorderedItems.splice(targetIndex, 0, draggedItem);
     
-    // Swap positions
-    reorderedItems.splice(draggedIndex, 1);
-    reorderedItems.splice(index, 0, draggedItem);
-    
-    setDraggedIndex(index);
     setItems(reorderedItems);
+    setDraggedIndex(null);
   };
 
   const handleDragEnd = () => {
@@ -332,7 +332,8 @@ export default function NewChapterPage() {
                   key={item.tempId}
                   draggable
                   onDragStart={(e) => handleDragStart(e, idx)}
-                  onDragOver={(e) => handleDragOver(e, idx)}
+                  onDragOver={handleDragOver}
+                  onDrop={(e) => handleDrop(e, idx)}
                   onDragEnd={handleDragEnd}
                   className={`relative group border rounded-xl overflow-hidden shadow-md flex flex-col transition-all cursor-move ${
                     draggedIndex === idx 

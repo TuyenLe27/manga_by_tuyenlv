@@ -10,11 +10,16 @@ export default async function Page({ params }) {
   const { id: comicId, chapterId } = resolvedParams;
 
   try {
-    // 1. Tải thông tin chapter và các ảnh chapter trực tiếp từ DB trên Server
+    // 1. Tải thông tin chapter và các ảnh chapter trực tiếp từ DB trên Server (Bỏ cột url để tránh tải Base64 siêu nặng)
     const chapter = await prisma.chapter.findUnique({
       where: { id: chapterId },
       include: {
         images: {
+          select: {
+            id: true,
+            chapterId: true,
+            sortOrder: true
+          },
           orderBy: { sortOrder: 'asc' },
         },
         comic: {
@@ -43,10 +48,19 @@ export default async function Page({ params }) {
       notFound();
     }
 
+    // Map URL ảnh động trỏ tới API endpoint để tải song song và tận dụng cache
+    const mappedChapter = {
+      ...chapter,
+      images: chapter.images.map(img => ({
+        ...img,
+        url: `/api/images/${img.id}`
+      }))
+    };
+
     return (
       <ChapterReaderClient 
         initialComic={JSON.parse(JSON.stringify(mapComic(comic)))} 
-        initialChapter={JSON.parse(JSON.stringify(mapChapter(chapter)))} 
+        initialChapter={JSON.parse(JSON.stringify(mappedChapter))} 
       />
     );
   } catch (error) {
