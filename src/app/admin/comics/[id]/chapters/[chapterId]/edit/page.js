@@ -12,7 +12,6 @@ export default function EditChapterPage() {
   const [chapter, setChapter] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isAutosaving, setIsAutosaving] = useState(false);
   const [compressing, setCompressing] = useState(false);
   const [chapterNumber, setChapterNumber] = useState('');
   const [chapterTitle, setChapterTitle] = useState('');
@@ -26,57 +25,6 @@ export default function EditChapterPage() {
   
   const router = useRouter();
   const params = useParams();
-
-  const autoSaveItems = async (newItems, currentNum = chapterNumber, currentTitle = chapterTitle) => {
-    if (!currentNum) return;
-    setIsAutosaving(true);
-    setError('');
-    
-    try {
-      const { chapterId } = params;
-      const formData = new FormData();
-      formData.append('chapterNumber', currentNum);
-      formData.append('title', currentTitle);
-      
-      const imagesStructure = newItems.map(item => {
-        if (item.type === 'existing') {
-          return { type: 'existing', id: item.id };
-        } else {
-          formData.append('images', item.file);
-          formData.append('tempIds', item.tempId);
-          return { type: 'new', tempId: item.tempId };
-        }
-      });
-
-      formData.append('imagesStructure', JSON.stringify(imagesStructure));
-
-      const res = await fetch(`/api/chapters/${chapterId}`, {
-        method: 'PUT',
-        body: formData,
-      });
-
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || 'Lỗi khi tự động lưu');
-      }
-
-      const updatedChapter = await res.json();
-      
-      // Update local state with the returned database records (all are now existing and have valid db IDs)
-      const fetchedItems = (updatedChapter.images || []).map(img => ({
-        id: img.id,
-        url: img.url,
-        type: 'existing'
-      }));
-      setItems(fetchedItems);
-      setSuccess('Đã tự động lưu vị trí và các thay đổi!');
-      setTimeout(() => setSuccess(''), 2000);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setIsAutosaving(false);
-    }
-  };
 
   useEffect(() => {
     const fetchChapterAndComic = async () => {
@@ -147,7 +95,6 @@ export default function EditChapterPage() {
 
       const updatedItems = [...items, ...newAddedItems];
       setItems(updatedItems);
-      await autoSaveItems(updatedItems);
     } catch (err) {
       setError('Lỗi khi nén ảnh: ' + err.message);
     } finally {
@@ -155,24 +102,22 @@ export default function EditChapterPage() {
     }
   };
 
-  const handleRemoveItem = async (index) => {
+  const handleRemoveItem = (index) => {
     const item = items[index];
     if (item.type === 'new') {
       URL.revokeObjectURL(item.url);
     }
     const updatedItems = items.filter((_, i) => i !== index);
     setItems(updatedItems);
-    await autoSaveItems(updatedItems);
   };
 
-  const handleClearAll = async () => {
+  const handleClearAll = () => {
     items.forEach(item => {
       if (item.type === 'new') {
         URL.revokeObjectURL(item.url);
       }
     });
     setItems([]);
-    await autoSaveItems([]);
   };
 
   // Drag and Drop handlers
@@ -198,13 +143,12 @@ export default function EditChapterPage() {
     setItems(reorderedItems);
   };
 
-  const handleDragEnd = async () => {
+  const handleDragEnd = () => {
     setDraggedIndex(null);
-    await autoSaveItems(items);
   };
 
   // Manual movements
-  const moveItem = async (index, direction) => {
+  const moveItem = (index, direction) => {
     if (direction === 'up' && index === 0) return;
     if (direction === 'down' && index === items.length - 1) return;
 
@@ -214,7 +158,6 @@ export default function EditChapterPage() {
     reorderedItems[index] = reorderedItems[targetIndex];
     reorderedItems[targetIndex] = temp;
     setItems(reorderedItems);
-    await autoSaveItems(reorderedItems);
   };
 
   const handleSubmit = async (e) => {
@@ -397,12 +340,6 @@ export default function EditChapterPage() {
           <div className="flex items-center justify-between border-b border-slate-705 pb-2">
             <div className="flex items-center gap-2">
               <span className="text-xs font-bold text-slate-450 uppercase tracking-wider">Danh sách trang truyện ({items.length} trang)</span>
-              {isAutosaving && (
-                <span className="inline-flex items-center gap-1 text-[10px] text-violet-400 font-semibold animate-pulse">
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  Đang tự động lưu vị trí...
-                </span>
-              )}
             </div>
             {items.length > 0 && (
               <button
